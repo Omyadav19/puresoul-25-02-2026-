@@ -61,21 +61,33 @@ const EmotionDetectionPage = () => {
   };
 
   const initializeEmotionDetector = async () => {
-    if (emotionDetectorRef.current) return;
+    if (emotionDetectorRef.current && modelReady) return;
     setIsModelLoading(true);
     setDetectionError(null);
+    addLog('Starting AI Neural Engine...');
+
     try {
-      emotionDetectorRef.current = new MediaPipeEmotionDetector();
-      const success = await emotionDetectorRef.current.initialize();
+      // Create a timeout to prevent hanging forever if the models download slowly
+      const initPromise = (async () => {
+        emotionDetectorRef.current = new MediaPipeEmotionDetector();
+        return await emotionDetectorRef.current.initialize();
+      })();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI Engine taking too long to load (Slow Connection)')), 15000)
+      );
+
+      const success = await Promise.race([initPromise, timeoutPromise]);
+
       if (success) {
+        addLog('AI Engine READY');
         setModelReady(true);
-        console.log('MediaPipe emotion detection initialized successfully');
       } else {
-        throw new Error('Could not initialize MediaPipe. This might be a browser compatibility issue.');
+        throw new Error('AI Engine failed to start. Try refreshing.');
       }
     } catch (error) {
-      addLog(`AI Init Error: ${error.message}`);
-      setDetectionError(`Neural engine failed: ${error.message || 'Check your internet connection'}`);
+      addLog(`AI Init Failed: ${error.message}`);
+      setDetectionError(`Neural engine error: ${error.message}`);
     } finally {
       setIsModelLoading(false);
     }
@@ -522,11 +534,18 @@ const EmotionDetectionPage = () => {
                       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none transform scale-x-[-1]" />
 
                       {/* Loading/Status Overlays */}
-                      {!modelReady && hasPermission && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20">
+                      {!modelReady && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] z-20">
                           <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-                          <p className="text-white font-bold tracking-wide">Initializing Neural Engine...</p>
-                          <p className="text-white/50 text-[10px] mt-2">Connecting to AI models</p>
+                          <p className="text-white font-bold tracking-wide drop-shadow-lg">Initializing Neural Engine...</p>
+                          <p className="text-white/70 text-[10px] mt-2 bg-black/40 px-3 py-1 rounded-full">Connecting to AI models (may take 10-20s)</p>
+
+                          <button
+                            onClick={initializeEmotionDetector}
+                            className="mt-6 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white text-xs font-bold transition-all"
+                          >
+                            Retry AI Loading
+                          </button>
                         </div>
                       )}
 
@@ -576,29 +595,6 @@ const EmotionDetectionPage = () => {
                         </div>
                       )}
                     </div>
-                  )}
-
-                  {/* Debug Logs Overlay */}
-                  {debugLogs.length > 0 && (
-                    <div className="absolute bottom-4 left-4 right-4 z-40 pointer-events-none">
-                      <div className="flex flex-col gap-1 items-start">
-                        {debugLogs.map((log, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-black/80 text-[10px] text-blue-300 font-mono rounded border border-blue-500/20">
-                            {log}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Force Trigger UI */}
-                  {hasPermission && (
-                    <button
-                      onClick={initializeEmotionDetector}
-                      className="absolute top-4 right-4 z-40 p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/10 text-white/50 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider"
-                    >
-                      Force AI Init
-                    </button>
                   )}
                 </div>
               </div>
