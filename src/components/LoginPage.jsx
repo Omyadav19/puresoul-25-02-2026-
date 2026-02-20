@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
 import { validateEmail, validateUsername, validatePassword } from '../utils/auth.js';
 
-const BASE_URL = 'http://localhost:5000';
+import { API_BASE_URL as BASE_URL } from '../utils/apiConfig';
 
 const PRO_FEATURES = [
     { icon: History, text: 'Unlimited session history' },

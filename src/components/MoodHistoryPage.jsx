@@ -10,7 +10,9 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
 import { useCredits } from '../context/CreditContext';
 
-const BASE_URL = 'http://localhost:5000';
+import { API_BASE_URL } from '../utils/apiConfig';
+
+const BASE_URL = API_BASE_URL;
 
 const EMOTION_COLORS_TEXT = {
   happy: 'text-emerald-400',

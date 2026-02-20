@@ -36,6 +36,12 @@ const EmotionDetectionPage = () => {
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [detectionError, setDetectionError] = useState(null);
+  const [debugLogs, setDebugLogs] = useState([]);
+
+  const addLog = (msg) => {
+    console.log(`[SYS] ${msg}`);
+    setDebugLogs(prev => [msg, ...prev.slice(0, 4)]);
+  };
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -55,21 +61,33 @@ const EmotionDetectionPage = () => {
   };
 
   const initializeEmotionDetector = async () => {
-    if (emotionDetectorRef.current) return;
+    if (emotionDetectorRef.current && modelReady) return;
     setIsModelLoading(true);
     setDetectionError(null);
+    addLog('Starting AI Neural Engine...');
+
     try {
-      emotionDetectorRef.current = new MediaPipeEmotionDetector();
-      const success = await emotionDetectorRef.current.initialize();
+      // Create a timeout to prevent hanging forever if the models download slowly
+      const initPromise = (async () => {
+        emotionDetectorRef.current = new MediaPipeEmotionDetector();
+        return await emotionDetectorRef.current.initialize();
+      })();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI Engine taking too long to load (Slow Connection)')), 15000)
+      );
+
+      const success = await Promise.race([initPromise, timeoutPromise]);
+
       if (success) {
+        addLog('AI Engine READY');
         setModelReady(true);
-        console.log('MediaPipe emotion detection initialized successfully');
       } else {
-        throw new Error('Failed to initialize MediaPipe emotion detector');
+        throw new Error('AI Engine failed to start. Try refreshing.');
       }
     } catch (error) {
-      console.error('Error initializing MediaPipe emotion detector:', error);
-      setDetectionError('Failed to load detection models. Please refresh and try again.');
+      addLog(`AI Init Failed: ${error.message}`);
+      setDetectionError(`Neural engine error: ${error.message}`);
     } finally {
       setIsModelLoading(false);
     }
@@ -77,21 +95,52 @@ const EmotionDetectionPage = () => {
 
   const requestCameraPermission = async () => {
     try {
+      addLog('Requesting camera access...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }
       });
+
+      addLog('Camera access GRANTED');
       setStream(mediaStream);
       setHasPermission(true);
+
       if (videoRef.current) {
+        addLog('Attaching stream to video tag');
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
-        videoRef.current.onloadedmetadata = () => {
-          initializeEmotionDetector();
+
+        const handleVideoReady = () => {
+          if (videoRef.current && videoRef.current.videoWidth > 0) {
+            addLog(`Video feed active: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+            initializeEmotionDetector();
+          }
         };
+
+        videoRef.current.onloadedmetadata = handleVideoReady;
+        videoRef.current.onloadeddata = handleVideoReady;
+
+        // Fallback for browsers with slow metadata
+        setTimeout(() => {
+          if (!modelReady && !isModelLoading) {
+            addLog('Metadata timeout, checking manually');
+            handleVideoReady();
+          }
+        }, 3000);
+
+        try {
+          await videoRef.current.play();
+          addLog('Video playback started');
+        } catch (playError) {
+          addLog(`Playback error: ${playError.message}`);
+        }
       }
     } catch (error) {
-      console.error('Camera permission denied:', error);
+      addLog(`Camera Error: ${error.name}`);
       setHasPermission(false);
+      setDetectionError(`Camera Blocked: ${error.message}. Please click the lock icon next to the URL bar and allow 'Camera'.`);
     }
   };
 
@@ -105,7 +154,14 @@ const EmotionDetectionPage = () => {
   };
 
   const performEmotionDetection = async () => {
-    if (!emotionDetectorRef.current || !modelReady || !videoRef.current || !canvasRef.current || videoRef.current.videoWidth === 0) return;
+    if (!emotionDetectorRef.current || !modelReady || !videoRef.current || !canvasRef.current) return;
+
+    // Log if video isn't ready yet
+    if (videoRef.current.videoWidth === 0) {
+      console.log('Waiting for video frames...');
+      return;
+    }
+
     try {
       const result = await emotionDetectorRef.current.detectEmotionFromVideo(videoRef.current, canvasRef.current);
       if (result) {
@@ -128,13 +184,19 @@ const EmotionDetectionPage = () => {
       }
     } catch (error) {
       console.error('MediaPipe emotion detection error:', error);
-      setDetectionError('Error during emotion detection. Please try again.');
+      // Don't show error immediately as it might be transient
     }
   };
 
   const handlePopupDismiss = () => {
     setShowEmotionPopup(false);
     navigate('/therapy-session', { state: { category: 'Just Talk', initialEmotion: dominantEmotion } });
+  };
+
+  const retryCamera = () => {
+    setDetectionError(null);
+    setHasPermission(null);
+    requestCameraPermission();
   };
 
   const handleCloseTips = () => {
@@ -370,9 +432,16 @@ const EmotionDetectionPage = () => {
         : 'bg-white/80 border-slate-200 shadow-sm'
         }`}>
         <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
-          <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 via-teal-400 to-green-400 bg-clip-text text-transparent">
-            Emotion Detection
-          </h1>
+          {/* Header Title moved for better responsiveness */}
+          <div className="flex flex-col mb-2">
+            <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 via-teal-400 to-green-400 bg-clip-text text-transparent">
+              Emotion Detection
+            </h1>
+            <p className={`text-xs font-medium ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+              Instant AI facial analysis
+            </p>
+          </div>
+
           <div className="flex space-x-3">
             {/* Buy Credits */}
             <button
@@ -453,8 +522,32 @@ const EmotionDetectionPage = () => {
                 <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-black">
                   {hasPermission ? (
                     <>
-                      <video ref={videoRef} className="w-full h-full object-cover transform scale-x-[-1]" autoPlay muted playsInline />
+                      <video
+                        ref={videoRef}
+                        className="w-full h-full object-cover transform scale-x-[-1]"
+                        autoPlay
+                        muted
+                        playsInline
+                        onLoadedMetadata={(e) => console.log('Video metadata loaded', e)}
+                        onError={(e) => console.error('Video tag error', e)}
+                      />
                       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none transform scale-x-[-1]" />
+
+                      {/* Loading/Status Overlays */}
+                      {!modelReady && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] z-20">
+                          <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                          <p className="text-white font-bold tracking-wide drop-shadow-lg">Initializing Neural Engine...</p>
+                          <p className="text-white/70 text-[10px] mt-2 bg-black/40 px-3 py-1 rounded-full">Connecting to AI models (may take 10-20s)</p>
+
+                          <button
+                            onClick={initializeEmotionDetector}
+                            className="mt-6 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white text-xs font-bold transition-all"
+                          >
+                            Retry AI Loading
+                          </button>
+                        </div>
+                      )}
 
                       {/* Tech Overlay Elements */}
                       <div className="absolute inset-0 pointer-events-none">
@@ -475,7 +568,7 @@ const EmotionDetectionPage = () => {
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 p-12 text-center">
                       {isModelLoading ? (
                         <div className="flex flex-col items-center gap-4">
                           <div className="relative w-16 h-16">
@@ -484,14 +577,40 @@ const EmotionDetectionPage = () => {
                           <p className="font-medium animate-pulse">Initializing Neural Engine...</p>
                         </div>
                       ) : (
-                        <div className="text-center p-8">
-                          <CameraOff className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                          <p className="text-lg font-medium">Camera Feed Inactive</p>
+                        <div className="flex flex-col items-center max-w-sm">
+                          <CameraOff className="w-16 h-16 mx-auto mb-6 opacity-30" />
+                          <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Webcam Not Active</h3>
+                          <p className="text-sm mb-8 opacity-60">Please allow camera access and ensure no other app is using it.</p>
+
+                          <button
+                            onClick={retryCamera}
+                            className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl font-bold transition-all active:scale-95 ${theme === 'dark'
+                              ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20'
+                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xl'
+                              }`}
+                          >
+                            <Camera className="w-5 h-5" />
+                            Enable Webcam
+                          </button>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Troubleshooting Tips */}
+              <div className={`p-6 rounded-3xl border ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <AlertCircle className="w-4 h-4 text-blue-400" />
+                  <h4 className={`text-xs font-black uppercase tracking-[0.15em] ${theme === 'dark' ? 'text-white/70' : 'text-slate-800'}`}>Troubleshooting Black Screen</h4>
+                </div>
+                <ul className={`text-[11px] space-y-2 font-medium ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
+                  <li>• Ensure the browser has <b>Camera Permissions</b> enabled (check the address bar lock icon).</li>
+                  <li>• Close other apps using the camera (Zoom, Teams, WhatsApp Web).</li>
+                  <li>• Use <b>Google Chrome</b> or <b>Edge</b> for the best stability.</li>
+                  <li>• Try <b>Refreshing (F5)</b> if the "Initializing" spinner stays forever.</li>
+                </ul>
               </div>
             </motion.div>
           </div>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useApp } from './AppContext';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 const CreditContext = createContext(undefined);
 
@@ -28,7 +29,7 @@ export const CreditProvider = ({ children }) => {
         setIsLoading(true);
         try {
             const token = localStorage.getItem('authToken');
-            const response = await fetch('http://localhost:5000/api/credits', {
+            const response = await fetch(`${API_BASE_URL}/api/credits`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -48,7 +49,7 @@ export const CreditProvider = ({ children }) => {
         if (!user) return;
         try {
             const token = localStorage.getItem('authToken');
-            const response = await fetch('http://localhost:5000/api/credits/use', {
+            const response = await fetch(`${API_BASE_URL}/api/credits/use`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -70,7 +71,7 @@ export const CreditProvider = ({ children }) => {
         if (!user) return;
         try {
             const token = localStorage.getItem('authToken');
-            const response = await fetch('http://localhost:5000/api/credits/buy', {
+            const response = await fetch(`${API_BASE_URL}/api/credits/buy`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

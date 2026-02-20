@@ -17,7 +17,7 @@ from functools import wraps
 from validation import validate_email, validate_username, validate_password
 from models import db, User, TherapySession, TherapyMessage, ContactUs
 
-print("🔥 RUNNING UPDATED app.py FILE (Pro System) 🔥")
+print("RUNNING UPDATED app.py FILE (Pro System)")
 
 # Load environment variables
 load_dotenv()
@@ -27,7 +27,11 @@ app = Flask(__name__)
 CORS(app)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+db_uri = os.getenv('SQLALCHEMY_DATABASE_URI')
+if db_uri and db_uri.startswith("postgres://"):
+    db_uri = db_uri.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize Extensions

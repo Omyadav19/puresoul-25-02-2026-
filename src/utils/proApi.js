@@ -1,12 +1,12 @@
-// src/utils/proApi.js
-// Centralised helper for all Pro-tier API calls.
+import { API_BASE_URL } from './apiConfig';
 
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = API_BASE_URL;
 
 const authHeaders = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${localStorage.getItem('authToken')}`,
 });
+
 
 // ── Session lifecycle ──────────────────────────────────────────────────────
 
