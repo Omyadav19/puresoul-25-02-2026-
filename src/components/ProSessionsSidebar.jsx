@@ -5,9 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     History, ChevronLeft, ChevronRight, MessageSquare,
-    Clock, Crown, Loader2, AlertCircle, RefreshCw
+    Clock, Crown, Loader2, AlertCircle, RefreshCw, Trash2
 } from 'lucide-react';
-import { fetchProSessions } from '../utils/proApi';
+import { fetchProSessions, deleteSession } from '../utils/proApi';
 
 const formatDate = (iso) => {
     if (!iso) return '';
@@ -53,6 +53,18 @@ const ProSessionsSidebar = ({
         }
     }, []);
 
+    const handleDeleteSession = async (e, sessionId) => {
+        e.stopPropagation();
+        if (!window.confirm('Are you sure you want to delete this session history?')) return;
+
+        try {
+            await deleteSession(sessionId);
+            setSessions(prev => prev.filter(s => s.id !== sessionId));
+        } catch (err) {
+            alert('Failed to delete session: ' + err.message);
+        }
+    };
+
     useEffect(() => {
         if (isOpen) loadSessions();
     }, [isOpen, loadSessions]);
@@ -67,8 +79,8 @@ const ProSessionsSidebar = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className={`fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center gap-1 px-2 py-4 rounded-r-xl shadow-xl transition-all duration-300 ${isDark
-                        ? 'bg-purple-600/80 text-white hover:bg-purple-500/90 border border-purple-400/20'
-                        : 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-200'
+                    ? 'bg-purple-600/80 text-white hover:bg-purple-500/90 border border-purple-400/20'
+                    : 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-200'
                     }`}
                 title="Pro Session History"
             >
@@ -86,8 +98,8 @@ const ProSessionsSidebar = ({
                         exit={{ x: -320, opacity: 0 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         className={`fixed left-0 top-0 h-full w-72 z-40 flex flex-col shadow-2xl border-r ${isDark
-                                ? 'bg-[#0f0f1a]/95 backdrop-blur-xl border-white/10'
-                                : 'bg-white/95 backdrop-blur-xl border-slate-200'
+                            ? 'bg-[#0f0f1a]/95 backdrop-blur-xl border-white/10'
+                            : 'bg-white/95 backdrop-blur-xl border-slate-200'
                             }`}
                     >
                         {/* Header */}
@@ -151,25 +163,36 @@ const ProSessionsSidebar = ({
                                         whileHover={{ scale: 1.02, x: 2 }}
                                         whileTap={{ scale: 0.98 }}
                                         className={`w-full text-left rounded-xl px-3 py-3 transition-all duration-200 border ${isActive
-                                                ? isDark
-                                                    ? 'bg-purple-600/30 border-purple-500/50 shadow-lg shadow-purple-900/20'
-                                                    : 'bg-purple-50 border-purple-300 shadow-sm'
-                                                : isDark
-                                                    ? 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
-                                                    : 'bg-slate-50 border-slate-100 hover:bg-purple-50 hover:border-purple-200'
+                                            ? isDark
+                                                ? 'bg-purple-600/30 border-purple-500/50 shadow-lg shadow-purple-900/20'
+                                                : 'bg-purple-50 border-purple-300 shadow-sm'
+                                            : isDark
+                                                ? 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
+                                                : 'bg-slate-50 border-slate-100 hover:bg-purple-50 hover:border-purple-200'
                                             }`}
                                     >
                                         <div className="flex items-start gap-2">
                                             <div className={`mt-0.5 w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isActive
-                                                    ? 'bg-purple-500 text-white'
-                                                    : isDark ? 'bg-white/10 text-purple-300' : 'bg-purple-100 text-purple-600'
+                                                ? 'bg-purple-500 text-white'
+                                                : isDark ? 'bg-white/10 text-purple-300' : 'bg-purple-100 text-purple-600'
                                                 }`}>
                                                 <MessageSquare className="w-3 h-3" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                                                    {session.session_title || 'Therapy Session'}
-                                                </p>
+                                                <div className="flex items-start justify-between gap-1">
+                                                    <p className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                                        {session.session_title || 'Therapy Session'}
+                                                    </p>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.2, color: '#ef4444' }}
+                                                        whileTap={{ scale: 0.8 }}
+                                                        onClick={(e) => handleDeleteSession(e, session.id)}
+                                                        className={`p-1 -mr-1 rounded-md transition-colors ${isDark ? 'text-white/20 hover:bg-red-500/10' : 'text-slate-300 hover:bg-red-50'}`}
+                                                        title="Delete Session"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </motion.button>
+                                                </div>
                                                 <div className={`flex items-center gap-1 mt-1 ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
                                                     <Clock className="w-2.5 h-2.5" />
                                                     <span className="text-[10px]">{formatDate(session.started_at)}</span>

@@ -66,6 +66,20 @@ export async function fetchSessionMessages(sessionId) {
     return res.json();
 }
 
+/**
+ * Delete a specific therapy session.
+ * @param {number} sessionId
+ */
+export async function deleteSession(sessionId) {
+    const res = await fetch(`${BASE_URL}/api/pro/session/${sessionId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+    });
+    if (res.status === 403) throw new Error('PRO_REQUIRED');
+    if (!res.ok) throw new Error('Failed to delete session');
+    return res.json();
+}
+
 // ── Upgrade ────────────────────────────────────────────────────────────────
 
 /**

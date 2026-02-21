@@ -478,9 +478,6 @@ def create_session(current_user):
     Returns session_id for Pro users, None for free users.
     """
     try:
-        if not current_user.is_pro:
-            return jsonify({'session_id': None, 'is_pro': False}), 200
-
         data = request.get_json() or {}
         category = data.get('category', 'Mental Health')
         session_title = data.get('session_title', f"{category} Session")
@@ -500,7 +497,7 @@ def create_session(current_user):
 
         return jsonify({
             'session_id': new_session.id,
-            'is_pro': True,
+            'is_pro': current_user.is_pro,
             'session': new_session.to_dict()
         }), 201
 
@@ -594,6 +591,29 @@ def get_session_messages(current_user, session_id):
     except Exception as e:
         print(f"Fetch session messages error: {e}")
         return jsonify({'message': 'Server error fetching messages.'}), 500
+
+
+@app.route('/api/pro/session/<int:session_id>', methods=['DELETE'])
+@pro_required
+def delete_session(current_user, session_id):
+    """Delete a therapy session and its messages (Pro only, owner only)."""
+    try:
+        session = TherapySession.query.filter_by(
+            id=session_id, user_id=current_user.id
+        ).first()
+
+        if not session:
+            return jsonify({'message': 'Session not found or access denied.'}), 404
+
+        db.session.delete(session)
+        db.session.commit()
+
+        return jsonify({'message': 'Session deleted successfully.'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Delete session error: {e}")
+        return jsonify({'message': 'Server error deleting session.'}), 500
 
 
 # ============== MAIN CHAT ENDPOINT ==============
@@ -710,8 +730,32 @@ def get_response(current_user):
         message_history = data.get('messageHistory', [])  # Fallback for free users
         category = data.get('category', 'Mental Health')
         session_id = data.get('session_id', None)  # Pro users send this
+        provided_emotion = data.get('emotion', None) # Optional frontend cam emotion
 
         current_system_prompt = SYSTEM_PROMPTS.get(category, SYSTEM_PROMPTS["Mental Health"])
+
+        # Detect emotion of the user's message
+        user_emotion = provided_emotion
+        if not user_emotion:
+            try:
+                # Quick secondary call for classification
+                classify_completion = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "Classify the following message into exactly one emotion: happy, sad, neutral, surprised, angry, fear. Return ONLY the word."},
+                        {"role": "user", "content": user_message}
+                    ],
+                    model="llama3-8b-8192",
+                    max_tokens=10
+                )
+                detected = classify_completion.choices[0].message.content.strip().lower()
+                # Clean up punctuation if any
+                detected = re.sub(r'[^a-z]', '', detected)
+                if detected in ['happy', 'sad', 'neutral', 'surprised', 'angry', 'fear']:
+                    user_emotion = detected
+                else:
+                    user_emotion = 'neutral'
+            except:
+                user_emotion = 'neutral'
 
         # Build conversation history for the LLM
         conversation_history = [
@@ -745,10 +789,10 @@ def get_response(current_user):
             else "I'm here to listen. Could you tell me more?"
         )
 
-        # ── PRO: Persist both messages ──
-        if current_user.is_pro and session_id:
-            _save_message(session_id, 'user', user_message)
-            _save_message(session_id, 'ai', response_text)
+        # ── Persist both messages for Analytics ──
+        if session_id:
+            _save_message(session_id, 'user', user_message, emotion=user_emotion)
+            _save_message(session_id, 'ai', response_text, emotion='neutral')
 
         return jsonify({'therapistResponse': response_text})
 

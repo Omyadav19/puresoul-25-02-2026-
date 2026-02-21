@@ -28,7 +28,10 @@ class TTSQueue {
 
     enqueue(text, fetchAudioFn) {
         if (!text || !text.trim()) return;
+        // Check if it was recently played or is already in the queue to prevent repeats
         if (this.lastPlayed === text) return;
+        if (this.queue.some(item => item.text === text)) return;
+
         this.queue.push({ text, fetchAudioFn });
         this._run();
     }
@@ -189,7 +192,7 @@ const TherapySessionPage = () => {
     const currentTheme = themeConfigs[category] || themeConfigs['Mental Health'];
     const CategoryIcon = currentTheme.icon;
 
-    const { user, addTherapySession, setSadDetectionCount, theme, toggleTheme, logout } = useApp();
+    const { user, currentEmotion, addTherapySession, setSadDetectionCount, theme, toggleTheme, logout } = useApp();
     const { credits, consumeCredit, refreshCredits } = useCredits();
 
     // ── State ──
@@ -237,33 +240,39 @@ const TherapySessionPage = () => {
         if (!user) { navigate('/login'); return; }
 
         const initSession = async () => {
-            if (user.is_pro) {
-                try {
-                    const data = await createSession(category);
-                    if (data.session_id) setSessionId(data.session_id);
-                } catch (e) {
-                    console.warn('Could not create Pro session:', e);
-                }
+            try {
+                const data = await createSession(category);
+                if (data.session_id) setSessionId(data.session_id);
+            } catch (e) {
+                console.warn('Could not create session:', e);
             }
         };
         initSession();
     }, [user]);  // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Welcome message ──
+    const welcomeRef = useRef(false);
     useEffect(() => {
-        if (user && !welcomeMessageSent && ttsQueueRef.current) {
+        if (user && !welcomeRef.current && ttsQueueRef.current && messages.length === 0) {
+            welcomeRef.current = true;
             const welcomeText = currentTheme.welcome;
             const initialMessage = {
-                id: Date.now().toString(),
+                id: 'welcome-' + Date.now().toString(),
                 text: welcomeText,
                 sender: 'therapist',
                 timestamp: new Date(),
             };
             setMessages([initialMessage]);
-            ttsQueueRef.current.enqueue(initialMessage.text, fetchTTSAudioArrayBuffer);
             setWelcomeMessageSent(true);
+
+            // Small delay to ensure audio element is ready
+            setTimeout(() => {
+                if (ttsQueueRef.current) {
+                    ttsQueueRef.current.enqueue(initialMessage.text, fetchTTSAudioArrayBuffer);
+                }
+            }, 500);
         }
-    }, [user, welcomeMessageSent, currentTheme]);
+    }, [user, currentTheme, messages.length]);
 
     // ── Auto-scroll ──
     useEffect(() => {
@@ -306,6 +315,7 @@ const TherapySessionPage = () => {
                     messageHistory: messageHistory.slice(-6),  // fallback for free users
                     category,
                     session_id: sessionId,                     // Pro: backend loads from DB
+                    emotion: currentEmotion?.emotion || null,  // Cam-detected emotion
                 }),
             });
 
@@ -324,13 +334,18 @@ const TherapySessionPage = () => {
 
     // ── Send message ──
     const handleSendMessage = async () => {
-        if (!inputMessage.trim() || credits <= 0) {
+        if (!inputMessage.trim() || credits <= 0 || isTyping) {
             if (credits <= 0) setShowCreditPopup(true);
             return;
         }
 
+        setIsTyping(true);
         const success = await consumeCredit();
-        if (!success) { setShowCreditPopup(true); return; }
+        if (!success) {
+            setIsTyping(false);
+            setShowCreditPopup(true);
+            return;
+        }
 
         const userMessage = {
             id: Date.now().toString(),
@@ -340,7 +355,6 @@ const TherapySessionPage = () => {
         };
         setMessages((prev) => [...prev, userMessage]);
         setInputMessage('');
-        setIsTyping(true);
 
         const therapeuticResponse = await getTherapeuticResponse(inputMessage, [...messages, userMessage]);
         const audioBufferList = await fetchTTSAudioArrayBuffer(therapeuticResponse);
@@ -580,8 +594,8 @@ const TherapySessionPage = () => {
                                 onClick={handleSendMessage}
                                 whileHover={credits > 0 ? { scale: 1.05 } : {}}
                                 whileTap={credits > 0 ? { scale: 0.95 } : {}}
-                                disabled={!inputMessage.trim() || credits <= 0}
-                                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${credits > 0
+                                disabled={!inputMessage.trim() || credits <= 0 || isTyping}
+                                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${credits > 0 && !isTyping
                                     ? `${currentTheme.accent} text-white`
                                     : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                     } disabled:opacity-50`}
