@@ -17,6 +17,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_pro = db.Column(db.Boolean, default=False)
+    tier = db.Column(db.String(20), default='basic')  # basic, pro, plus
 
     def to_dict(self):
         return {
@@ -26,7 +27,8 @@ class User(db.Model):
             'username': self.username,
             'credits': self.credits,
             'total_credits_purchased': self.total_credits_purchased,
-            'is_pro': self.is_pro
+            'is_pro': self.is_pro,
+            'tier': self.tier
         }
 
 class TherapySession(db.Model):

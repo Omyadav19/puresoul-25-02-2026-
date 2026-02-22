@@ -11,13 +11,25 @@ import { validateEmail, validateUsername, validatePassword } from '../utils/auth
 
 import { API_BASE_URL as BASE_URL } from '../utils/apiConfig';
 
-const PRO_FEATURES = [
-    { icon: History, text: 'Unlimited session history' },
-    { icon: Brain, text: 'AI remembers your past chats' },
-    { icon: Mic, text: 'Voice therapy (ElevenLabs TTS)' },
-    { icon: Shield, text: 'Priority AI processing' },
-    { icon: Crown, text: 'Pro badge & early features' },
-    { icon: Sparkles, text: 'Emotional continuity across sessions' },
+const DISPLAY_TIERS = [
+    {
+        id: 'pro',
+        name: 'Pro Member',
+        price: '₹149/mo',
+        credits: 30,
+        color: 'purple',
+        icon: Mic,
+        features: ['30 Monthly Credits', 'Voice Therapy (TTS)', 'Priority AI Engine', 'Pro Badge']
+    },
+    {
+        id: 'plus',
+        name: 'Plus Member',
+        price: '₹299/mo',
+        credits: 50,
+        color: 'pink',
+        icon: Brain,
+        features: ['50 Monthly Credits', 'AI Memory/Continuity', 'Voice Therapy Included', 'Everything in Pro']
+    }
 ];
 
 // ── Compact input ─────────────────────────────────────────────────────────────
@@ -48,6 +60,7 @@ const LoginPage = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
+    const [activeTier, setActiveTier] = useState('basic');
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [successMsg, setSuccessMsg] = useState('');
@@ -95,7 +108,11 @@ const LoginPage = () => {
                 setSuccessMsg('Login successful!');
                 setTimeout(() => navigate('/welcome'), 900);
             } else {
-                const res = await fetch(`${BASE_URL}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, username, password }) });
+                const res = await fetch(`${BASE_URL}/api/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, username, password, tier: activeTier })
+                });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || 'Registration failed.');
 
@@ -163,64 +180,77 @@ const LoginPage = () => {
                         key="pro-panel"
                         initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -60, opacity: 0 }}
                         transition={{ duration: 0.4, ease: 'easeOut' }}
-                        className="hidden lg:flex flex-col justify-center w-[440px] flex-shrink-0 px-12 py-8 relative z-10"
+                        className="hidden lg:flex flex-col justify-center w-[35%] flex-shrink-0 px-16 py-10 relative z-10 bg-white/5 backdrop-blur-2xl border-r border-white/10 shadow-[20px_0_50px_rgba(0,0,0,0.1)]"
                     >
-                        <div className="flex items-center gap-3 mb-10">
+                        <div className="flex items-center gap-3 mb-8">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center shadow-lg shadow-blue-500/30">
                                 <Heart className="w-6 h-6 text-white fill-white" />
                             </div>
                             <span className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Puresoul AI</span>
                         </div>
 
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-bold mb-6 w-fit">
-                            <Crown className="w-4 h-4" /> Pro Membership
-                        </div>
-
-                        <h2 className={`text-4xl font-black leading-tight mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            Unlock your full<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">healing potential</span>
+                        <h2 className={`text-3xl font-black leading-tight mb-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            Choose your path to<br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">total wellness</span>
                         </h2>
-                        <p className={`text-sm leading-relaxed mb-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Go Pro for just <span className="text-purple-400 font-bold">₹149/month</span> — an AI therapist that truly knows you, remembering every session and emotion.
-                        </p>
 
-                        <div className="space-y-4 mb-8">
-                            {PRO_FEATURES.map(({ icon: Icon, text }, i) => (
-                                <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.06 }}
-                                    className="flex items-center gap-4"
+                        <div className="space-y-4">
+                            {DISPLAY_TIERS.map((tier) => (
+                                <motion.div
+                                    key={tier.id}
+                                    initial={{ opacity: 0, y: 15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`p-5 rounded-3xl border transition-all ${isDark
+                                        ? 'bg-white/[0.04] border-white/10 hover:border-white/20'
+                                        : 'bg-white border-slate-200 shadow-sm'
+                                        }`}
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
-                                        <Icon className="w-4 h-4 text-purple-400" />
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${tier.color}-500/10 border border-${tier.color}-500/20`}>
+                                                <tier.icon className={`w-5 h-5 text-${tier.color}-400`} />
+                                            </div>
+                                            <div>
+                                                <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{tier.name}</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{tier.price}</p>
+                                            </div>
+                                        </div>
+                                        {tier.id === 'plus' && (
+                                            <div className="px-2 py-0.5 rounded-full bg-pink-500/20 border border-pink-500/30 text-pink-400 text-[9px] font-black uppercase">Best Value</div>
+                                        )}
                                     </div>
-                                    <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{text}</span>
+
+                                    <div className="grid grid-cols-2 gap-y-2.5 gap-x-4">
+                                        {tier.features.map((feat, idx) => (
+                                            <div key={idx} className="flex items-center gap-2">
+                                                <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center bg-${tier.color}-500/20 text-${tier.color}-400`}>
+                                                    <Check className="w-2 h-2" />
+                                                </div>
+                                                <span className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{feat}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </motion.div>
                             ))}
                         </div>
 
-                        <div className={`flex items-center justify-between px-6 py-4 rounded-2xl border ${isDark ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-50 border-purple-200 shadow-sm shadow-purple-500/5'}`}>
-                            <div>
-                                <p className="text-purple-400 text-xs font-bold uppercase tracking-widest mb-1">Pro Plan</p>
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>₹149</span>
-                                    <span className="text-slate-400 text-sm">/month</span>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cancel anytime</p>
-                                <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No hidden fees</p>
-                            </div>
-                        </div>
+                        <p className={`mt-8 text-xs text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            All plans include advanced emotion detection and confidential sessions.
+                        </p>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <div className={`flex-1 flex items-center justify-center px-10 py-6 relative z-10 ${isRegister ? 'lg:border-l lg:border-white/5' : ''}`}>
+            <div className={`flex-1 flex items-center justify-center px-10 py-10 relative z-10 ${isDark ? 'bg-[#060b14]/30' : 'bg-white/60'}`}>
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={mode}
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3 }}
-                        className="w-full max-w-xl"
+                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.4 }}
+                        className={`w-full max-w-2xl p-10 lg:p-14 rounded-[3.5rem] border transition-all duration-500 ${isDark
+                            ? 'bg-[#0f172a]/60 border-white/10 shadow-2xl shadow-indigo-500/10 backdrop-blur-3xl'
+                            : 'bg-white border-white/60 shadow-2xl shadow-blue-500/10'
+                            }`}
                     >
                         <div className={`${isLogin ? 'text-center mb-6' : 'mb-4'}`}>
                             {isLogin && (
@@ -301,74 +331,76 @@ const LoginPage = () => {
                                 )}
 
                                 {isRegister && (
-                                    <div className="space-y-3">
-                                        <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Full Name</label>
-                                                <Input placeholder="Your name" value={name}
+                                                <Input placeholder="John Doe" value={name}
                                                     onChange={e => { setName(e.target.value); vField('name', e.target.value); }}
                                                     required isDark={isDark}
                                                 />
-                                                {errors.name && <p className="text-red-400 text-[10px] mt-0.5">{errors.name}</p>}
                                             </div>
                                             <div>
                                                 <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Username</label>
-                                                <Input icon={User} placeholder="username" value={username}
+                                                <Input icon={User} placeholder="user123" value={username}
                                                     onChange={e => { setUsername(e.target.value); vField('username', e.target.value); }}
                                                     required isDark={isDark}
                                                 />
                                                 {errors.username && <p className="text-red-400 text-[10px] mt-0.5">{errors.username}</p>}
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Email</label>
-                                            <Input icon={Mail} type="email" placeholder="you@email.com" value={email}
-                                                onChange={e => { setEmail(e.target.value); vField('email', e.target.value); }}
-                                                required isDark={isDark}
-                                            />
-                                            {errors.email && <p className="text-red-400 text-[10px] mt-0.5">{errors.email}</p>}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Email</label>
+                                                <Input icon={Mail} type="email" placeholder="you@email.com" value={email}
+                                                    onChange={e => { setEmail(e.target.value); vField('email', e.target.value); }}
+                                                    required isDark={isDark}
+                                                />
+                                                {errors.email && <p className="text-red-400 text-[10px] mt-0.5">{errors.email}</p>}
+                                            </div>
+                                            <div>
+                                                <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Password</label>
+                                                <Input
+                                                    icon={Lock} type={showPw ? 'text' : 'password'}
+                                                    placeholder="8+ chars" value={password}
+                                                    onChange={e => { setPassword(e.target.value); vField('password', e.target.value); }}
+                                                    required isDark={isDark}
+                                                    right={
+                                                        <button type="button" onClick={() => setShowPw(p => !p)}
+                                                            className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                                        >
+                                                            {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    }
+                                                />
+                                                {errors.password && <p className="text-red-400 text-[10px] mt-0.5">{errors.password}</p>}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Password</label>
-                                            <Input
-                                                icon={Lock} type={showPw ? 'text' : 'password'}
-                                                placeholder="8+ chars, upper, number, symbol" value={password}
-                                                onChange={e => { setPassword(e.target.value); vField('password', e.target.value); }}
-                                                required isDark={isDark}
-                                                right={
-                                                    <button type="button" onClick={() => setShowPw(p => !p)}
-                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                        <div className="space-y-1.5">
+                                            <label className={`text-[10px] font-bold uppercase tracking-widest block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Membership Tier</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { id: 'basic', label: 'Basic', price: 'Free', icon: User, color: 'blue' },
+                                                    { id: 'pro', label: 'Pro', price: '₹149', icon: Mic, color: 'purple' },
+                                                    { id: 'plus', label: 'Plus', price: '₹299', icon: Brain, color: 'pink' }
+                                                ].map((t) => (
+                                                    <button
+                                                        key={t.id} type="button"
+                                                        onClick={() => { setActiveTier(t.id); setWantsPro(t.id !== 'basic'); }}
+                                                        className={`flex flex-col items-center p-2.5 rounded-2xl border transition-all duration-300 ${activeTier === t.id
+                                                            ? `bg-${t.color}-500/15 border-${t.color}-500/40 shadow-sm`
+                                                            : isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                                            }`}
                                                     >
-                                                        {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center mb-1 ${activeTier === t.id ? `bg-${t.color}-500 text-white shadow-md` : isDark ? 'bg-white/5 text-slate-500' : 'bg-white border text-slate-400'}`}>
+                                                            <t.icon className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <p className={`text-[10px] font-black leading-none mb-0.5 ${activeTier === t.id ? `text-${t.color}-400` : isDark ? 'text-white' : 'text-slate-800'}`}>{t.label}</p>
+                                                        <p className="text-[9px] text-slate-500 font-bold">{t.price}</p>
                                                     </button>
-                                                }
-                                            />
-                                            {errors.password && <p className="text-red-400 text-[10px] mt-0.5">{errors.password}</p>}
+                                                ))}
+                                            </div>
                                         </div>
-                                        <button
-                                            type="button" onClick={() => setWantsPro(p => !p)}
-                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all duration-300 ${wantsPro
-                                                ? 'bg-purple-500/15 border-purple-500/40'
-                                                : isDark ? 'bg-white/[0.03] border-white/10 hover:border-purple-500/30' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-2.5">
-                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${wantsPro ? 'bg-purple-500 shadow-md shadow-purple-500/30' : isDark ? 'bg-white/5' : 'bg-white border border-slate-200'}`}>
-                                                    <Crown className={`w-3.5 h-3.5 ${wantsPro ? 'text-white' : 'text-purple-400'}`} />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className={`text-xs font-bold leading-tight ${wantsPro ? 'text-purple-300' : isDark ? 'text-white' : 'text-slate-800'}`}>
-                                                        Start as Pro Member
-                                                    </p>
-                                                    <p className={`text-[10px] leading-tight ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                        ₹149/month · Unlimited history · AI memory · Voice therapy
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${wantsPro ? 'bg-purple-500 border-purple-500' : isDark ? 'border-white/20' : 'border-slate-300'}`}>
-                                                {wantsPro && <Check className="w-3 h-3 text-white" />}
-                                            </div>
-                                        </button>
                                     </div>
                                 )}
 
@@ -431,7 +463,7 @@ const LoginPage = () => {
                     </motion.div>
                 </AnimatePresence>
             </div>
-        </div>
+        </div >
     );
 };
 

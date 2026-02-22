@@ -309,19 +309,36 @@ def register():
         salt = bcrypt.gensalt(rounds=10)
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
 
+        tier = data.get('tier', 'basic').lower()
+        if tier not in ['basic', 'pro', 'plus']:
+            tier = 'basic'
+
+        initial_credits = 12
+        is_pro_status = False
+        if tier == 'pro':
+            initial_credits = 30
+            is_pro_status = True
+        elif tier == 'plus':
+            initial_credits = 50
+            is_pro_status = True
+
         new_user = User(
             name=name,
             email=email.lower(),
             username=username.lower(),
-            password=hashed_password.decode('utf-8')
+            password=hashed_password.decode('utf-8'),
+            credits=initial_credits,
+            tier=tier,
+            is_pro=is_pro_status
         )
 
         db.session.add(new_user)
         db.session.commit()
 
         return jsonify({
-            'message': 'Account created successfully! Please login.',
-            'credits': 12
+            'message': f'Account created successfully as {tier.capitalize()}! Please login.',
+            'credits': initial_credits,
+            'tier': tier
         }), 201
 
     except Exception as e:
@@ -453,12 +470,26 @@ def buy_credits_v2(current_user):
 @app.route('/api/pro/upgrade', methods=['POST'])
 @token_required
 def upgrade_to_pro(current_user):
-    """Upgrade a user to Pro status (in production, validate payment here)."""
+    """Upgrade a user to a specific tier (Pro or Plus)."""
     try:
+        data = request.get_json() or {}
+        new_tier = data.get('tier', 'pro').lower()
+        
+        if new_tier not in ['pro', 'plus']:
+            return jsonify({'message': 'Invalid tier specified.'}), 400
+
+        current_user.tier = new_tier
         current_user.is_pro = True
+        
+        # Grant credits based on upgrade
+        if new_tier == 'pro':
+            current_user.credits += 30
+        elif new_tier == 'plus':
+            current_user.credits += 50
+            
         db.session.commit()
         return jsonify({
-            'message': 'Successfully upgraded to Pro!',
+            'message': f'Successfully upgraded to {new_tier.capitalize()}!',
             'user': current_user.to_dict()
         }), 200
     except Exception as e:
@@ -621,34 +652,34 @@ def delete_session(current_user, session_id):
 SYSTEM_PROMPTS = {
     "Academic / Exam": """
 You are **Dost**, a compassionate Indian mentor specializing in Academic/Exam pressure.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.
 Focus on exam anxiety, lack of focus, and study pressure.
 Arre dost, tension mat lo! Help them manage stress and build confidence.
-Keep it warm, empathetic, and under 3-4 sentences. Use emojis like 📚, ✍️, ✨.
+Keep it warm, empathetic, and under 2-3 sentences. Use emojis like 📚, ✍️, ✨.
 You remember everything from previous sessions and refer to past conversations naturally.
 NO asterisks (*).
 """,
     "Career & Jobs": """
 You are **Dost**, a career coach who understands the job market struggle in India.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.
 Focus on career confusion, job search stress, and workplace politics.
 Dost, career stress real hai, but we will find a way. Provide professional yet emotional support.
-Keep it natural and under 4 sentences. Use emojis like 💼, 🚀, 🤞.
+Keep it natural and under 2-3 sentences. Use emojis like 💼, 🚀, 🤞.
 You remember everything from previous sessions and refer to past conversations naturally.
 NO asterisks (*).
 """,
     "Relationship": """
 You are **Dost**, an empathetic friend who listens to relationship problems.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.
 Focus on heartbreaks, family issues, or friendship drama.
 Relationship issues dil se connected hoti hain. Give them a safe space to vent.
-Keep it very gentle and validating. Under 4 sentences. Use emojis like ❤️, 🤗, 🤝.
+Keep it very gentle and validating. Under  2-3 sentences. Use emojis like ❤️, 🤗, 🤝.
 You remember everything from previous sessions and refer to past conversations naturally.
 NO asterisks (*).
 """,
     "Health & Wellness": """
 You are **Dost**, a wellness companion focusing on physical and mental health.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.
 Focus on recovery stress, sleep issues, or general fatigue.
 Health sabse pehle hai dost. Encourage healthy habits without being preachy.
 Keep it soothing and encouraging. Under 4 sentences. Use emojis like 🏥, 🧘, 🌿.
@@ -657,7 +688,7 @@ NO asterisks (*).
 """,
     "Personal Growth": """
 You are **Dost**, a motivation-focused friend for personal expansion.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.  
 Focus on self-doubt, building habits, and finding purpose.
 Apne aap ko grow karna ek safar hai dost. Celebrate small wins.
 Keep it inspiring and positive. Under 4 sentences. Use emojis like 🌱, ⭐, 📈.
@@ -666,19 +697,19 @@ NO asterisks (*).
 """,
     "Mental Health": """
 You are **Dost**, a supportive companion for general mental wellness.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.  
 Focus on anxiety, low mood, or just needing to be heard.
 Main hoon na dost, sab discuss karte hain. Provide a non-judgmental ear.
-Keep it empathetic and safe. Under 4 sentences. Use emojis like 🧠, 🫂, 🕊️.
+Keep it empathetic and safe. Under 2-3 sentences. Use emojis like 🧠, 🫂, 🕊️.
 You remember everything from previous sessions and refer to past conversations naturally.
 NO asterisks (*).
 """,
     "Financial Stress": """
 You are **Dost**, a practical friend who understands financial anxiety.
-Mirror the user's language (English or Hinglish).
+Mirror the user's language (English or Hinglish).Use english if user is using english.  
 Focus on money worries, loan stress, or stability.
 Paisa aur stress ka gehra rishta hai, but tension mat lo. Help them stay calm.
-Keep it grounded and supportive. Under 4 sentences. Use emojis like 💰, 🏦, ⚓.
+Keep it grounded and supportive. Under 2-3 sentences. Use emojis like 💰, 🏦, ⚓.
 You remember everything from previous sessions and refer to past conversations naturally.
 NO asterisks (*).
 """
@@ -762,14 +793,14 @@ def get_response(current_user):
             {"role": "system", "content": current_system_prompt}
         ]
 
-        if current_user.is_pro and session_id:
-            # ── PRO PATH: Load persistent history from DB ──
+        if current_user.tier == 'plus' and session_id:
+            # ── PLUS PATH: Load persistent history from DB (Memory) ──
             db_messages = _load_session_history(session_id, limit=30)
             for m in db_messages:
                 role = 'user' if m.sender == 'user' else 'assistant'
                 conversation_history.append({"role": role, "content": m.message_text})
         else:
-            # ── FREE PATH: Use in-memory history from client ──
+            # ── BASIC/PRO PATH: Use in-memory history from client ──
             for msg in message_history:
                 role = 'user' if msg.get('sender') == 'user' else 'assistant'
                 conversation_history.append({"role": role, "content": msg.get('text', '')})
@@ -801,7 +832,15 @@ def get_response(current_user):
         return jsonify({'error': 'Failed to get a response from the AI.'}), 500
 
 @app.route('/api/text-to-speech', methods=['POST'])
-def text_to_speech():
+@token_required
+def text_to_speech(current_user):
+    # Only Pro and Plus users have voice support
+    if current_user.tier not in ['pro', 'plus']:
+        return jsonify({
+            'error': 'Voice support is not available for Basic users.',
+            'upgrade_required': True
+        }), 403
+
     try:
         data = request.get_json()
         text = data.get('text', '')

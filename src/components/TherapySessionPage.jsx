@@ -63,12 +63,15 @@ class TTSQueue {
     }
 }
 
-const fetchTTSAudioArrayBuffer = async (text) => {
+const fetchTTSAudioArrayBuffer = async (text, authToken) => {
     if (!text || !text.trim()) return null;
     try {
         const resp = await fetch(`${API_BASE_URL}/api/text-to-speech`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
             body: JSON.stringify({ text }),
         });
         if (!resp.ok) return null;
@@ -267,8 +270,9 @@ const TherapySessionPage = () => {
 
             // Small delay to ensure audio element is ready
             setTimeout(() => {
-                if (ttsQueueRef.current) {
-                    ttsQueueRef.current.enqueue(initialMessage.text, fetchTTSAudioArrayBuffer);
+                const token = localStorage.getItem('authToken');
+                if (ttsQueueRef.current && user?.tier !== 'basic' && token) {
+                    ttsQueueRef.current.enqueue(initialMessage.text, (t) => fetchTTSAudioArrayBuffer(t, token));
                 }
             }, 500);
         }
@@ -357,7 +361,12 @@ const TherapySessionPage = () => {
         setInputMessage('');
 
         const therapeuticResponse = await getTherapeuticResponse(inputMessage, [...messages, userMessage]);
-        const audioBufferList = await fetchTTSAudioArrayBuffer(therapeuticResponse);
+
+        let audioBufferList = null;
+        if (user?.tier !== 'basic') {
+            const token = localStorage.getItem('authToken');
+            audioBufferList = await fetchTTSAudioArrayBuffer(therapeuticResponse, token);
+        }
 
         setIsTyping(false);
 
@@ -391,7 +400,14 @@ const TherapySessionPage = () => {
         navigate('/emotion-detection');
     };
 
-    const toggleVoice = () => { if (isListening) stopListening(); else startListening(); };
+    const toggleVoice = () => {
+        if (user?.tier === 'basic') {
+            setShowUpgradeBanner(true);
+            return;
+        }
+        if (isListening) stopListening();
+        else startListening();
+    };
     const handleBuyCredits = () => navigate('/buy-credits');
 
     const isPro = user?.is_pro;
@@ -461,7 +477,11 @@ const TherapySessionPage = () => {
                             <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{category}</h1>
                             <p className={`text-sm ${theme === 'dark' ? 'text-blue-200' : 'text-slate-500'}`}>
                                 Personalized Support • Confidential Safe Space
-                                {isPro && <span className="ml-2 text-purple-300 font-semibold">✦ Pro</span>}
+                                {isPro && (
+                                    <span className={`ml-2 font-semibold ${user?.tier === 'plus' ? 'text-pink-400' : 'text-purple-300'}`}>
+                                        ✦ {user?.tier?.toUpperCase()}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>

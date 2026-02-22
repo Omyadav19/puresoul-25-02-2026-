@@ -115,19 +115,24 @@ const BuyCreditsPage = () => {
         setTimeout(() => navigate('/therapy-session'), 2200);
     };
 
-    const handleProUpgrade = async () => {
+    const handleTierUpgrade = async (tier) => {
         setProLoading(true);
         try {
             const token = localStorage.getItem('authToken');
             const res = await fetch(`${BASE_URL}/api/pro/upgrade`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tier })
             });
             if (!res.ok) throw new Error('Upgrade failed');
-            const updatedUser = { ...user, is_pro: true };
+            const data = await res.json();
+            const updatedUser = { ...user, ...data.user };
             localStorage.setItem('userData', JSON.stringify(updatedUser));
             setUser(updatedUser);
             setProSuccess(true);
+            setSuccessMsg(`Upgraded to ${tier.toUpperCase()}!`);
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
         } catch (e) {
             console.error(e);
         } finally {
@@ -194,90 +199,110 @@ const BuyCreditsPage = () => {
                     transition={{ delay: 0.1 }}
                     className="mb-16"
                 >
-                    <div className={`relative rounded-[2.5rem] border overflow-hidden ${isDark
-                        ? 'bg-gradient-to-br from-purple-900/40 via-purple-800/20 to-pink-900/20 border-purple-500/30'
-                        : 'bg-gradient-to-br from-purple-50 via-pink-50 to-indigo-50 border-purple-200'
-                        }`}
-                    >
-                        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/20 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-60 h-60 bg-pink-500/15 blur-[80px] rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none" />
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+                        <h2 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Choose Your Healing Tier
+                        </h2>
+                        <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    </div>
 
-                        <div className="relative z-10 p-8 md:p-12 grid md:grid-cols-2 gap-10 items-center">
-                            <div>
-                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-bold mb-6">
-                                    <Crown className="w-3.5 h-3.5" /> Puresoul Pro
-                                </div>
-                                <h2 className={`text-4xl font-black mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                    The full therapy<br />
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">experience</span>
-                                </h2>
-                                <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    An AI therapist that truly knows you — remembering every session, every emotion, every breakthrough. Unlimited history, voice therapy, and emotional continuity.
-                                </p>
-
-                                <div className="flex items-baseline gap-2 mb-8">
-                                    <span className={`text-5xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>₹149</span>
-                                    <span className={`text-lg ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/month</span>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'}`}>Cancel anytime</span>
-                                </div>
-
-                                {isPro ? (
-                                    <div className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-purple-500/20 border border-purple-500/30 w-fit">
-                                        <Check className="w-5 h-5 text-purple-400" />
-                                        <span className="text-purple-300 font-bold">You're already Pro! 🎉</span>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {[
+                            {
+                                id: 'basic',
+                                name: 'Basic',
+                                price: 'Free',
+                                credits: 12,
+                                color: 'blue',
+                                icon: User,
+                                features: ['Text Therapy Only', '12 Credits Included', 'Emotion Detection', 'Standard AI Support'],
+                                current: user?.tier === 'basic' || !user?.tier
+                            },
+                            {
+                                id: 'pro',
+                                name: 'Pro',
+                                price: '₹149',
+                                credits: 30,
+                                color: 'purple',
+                                icon: Mic,
+                                features: ['Voice Therapy Enabled', '30 Additional Credits', 'Priority AI Processing', 'Standard History'],
+                                current: user?.tier === 'pro',
+                                popular: true
+                            },
+                            {
+                                id: 'plus',
+                                name: 'Plus',
+                                price: '₹299',
+                                credits: 50,
+                                color: 'pink',
+                                icon: Brain,
+                                features: ['AI Memory & Continuity', '50 Additional Credits', 'Persistent Session Memory', 'Everything in Pro'],
+                                current: user?.tier === 'plus'
+                            }
+                        ].map((tier) => (
+                            <motion.div
+                                key={tier.id}
+                                whileHover={{ y: -5 }}
+                                className={`relative p-8 rounded-[2.5rem] border transition-all duration-500 flex flex-col ${tier.current
+                                    ? isDark ? 'bg-white/[0.08] border-white/20' : 'bg-white border-slate-300 shadow-xl'
+                                    : tier.popular
+                                        ? 'bg-gradient-to-br from-purple-600/10 to-pink-500/10 border-purple-500/30 shadow-lg'
+                                        : isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                                    }`}
+                            >
+                                {tier.popular && (
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20">
+                                        Recommended
                                     </div>
-                                ) : proSuccess ? (
-                                    <div className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-green-500/20 border border-green-500/30 w-fit">
-                                        <CheckCircle2 className="w-5 h-5 text-green-400" />
-                                        <span className="text-green-300 font-bold">Welcome to Pro! Enjoy your benefits 🎉</span>
+                                )}
+
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 ${tier.popular
+                                    ? 'bg-purple-500 text-white'
+                                    : isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                    <tier.icon className="w-6 h-6" />
+                                </div>
+
+                                <h3 className={`text-xl font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{tier.name} Plan</h3>
+                                <div className="flex items-baseline gap-1 mb-6">
+                                    <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{tier.price}</span>
+                                    {tier.id !== 'basic' && <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/month</span>}
+                                </div>
+
+                                <div className="space-y-3 mb-8 flex-1">
+                                    {tier.features.map((f, i) => (
+                                        <div key={i} className={`flex items-center gap-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${tier.color === 'blue' ? 'bg-blue-500/20 text-blue-400' : tier.color === 'purple' ? 'bg-purple-500/20 text-purple-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                                                <Check className="w-2.5 h-2.5" />
+                                            </div>
+                                            {f}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {tier.current ? (
+                                    <div className="w-full py-3.5 rounded-xl font-bold text-sm text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                                        Current Plan
+                                    </div>
+                                ) : tier.id === 'basic' ? (
+                                    <div className="w-full py-3.5 rounded-xl font-bold text-sm text-center bg-slate-500/10 border border-slate-500/20 text-slate-400">
+                                        Initial Plan
                                     </div>
                                 ) : (
-                                    <motion.button
-                                        onClick={handleProUpgrade}
+                                    <button
+                                        onClick={() => handleTierUpgrade(tier.id)}
                                         disabled={proLoading}
-                                        whileHover={{ scale: 1.03, boxShadow: '0 0 30px rgba(168,85,247,0.4)' }}
-                                        whileTap={{ scale: 0.97 }}
-                                        className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-base shadow-lg shadow-purple-500/30 transition-all disabled:opacity-60"
-                                    >
-                                        {proLoading ? (
-                                            <>
-                                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                                                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                                                />
-                                                Activating Pro…
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Crown className="w-5 h-5" />
-                                                Upgrade to Pro — ₹149/mo
-                                                <ChevronRight className="w-4 h-4" />
-                                            </>
-                                        )}
-                                    </motion.button>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {PRO_FEATURES.map(({ icon: Icon, title, desc }, i) => (
-                                    <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.15 + i * 0.07 }}
-                                        className={`p-4 rounded-2xl border transition-all ${isDark
-                                            ? 'bg-white/[0.04] border-white/10 hover:border-purple-500/30'
-                                            : 'bg-white/70 border-purple-100 hover:border-purple-300 shadow-sm'
+                                        className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${tier.popular
+                                            ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg'
+                                            : isDark ? 'bg-white/5 text-white border border-white/10' : 'bg-slate-900 text-white hover:bg-slate-800'
                                             }`}
                                     >
-                                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center mb-3">
-                                            <Icon className="w-4 h-4 text-purple-400" />
-                                        </div>
-                                        <p className={`text-sm font-bold mb-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</p>
-                                        <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{desc}</p>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </div>
+                                        {proLoading ? 'Wait...' : `Switch to ${tier.name}`}
+                                    </button>
+                                )}
+                            </motion.div>
+                        ))}
                     </div>
                 </motion.div>
 
